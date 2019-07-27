@@ -47,26 +47,32 @@ class feature_extractor(object):
 
         generated_features = []
         real_features = []
+        generated_img_paths = []
+
         with torch.no_grad():
 
             generated_data = ImageDataset(self.generated_dir, self.data_size, self.batch_size)
             generated_loader = DataLoader(generated_data, batch_size=self.batch_size, shuffle=False)
 
-            for imgs in tqdm(generated_loader, ncols=80):
+            for imgs, img_paths in tqdm(generated_loader, ncols=80):
                 target_features = cnn(imgs)
-                
+
+                img_paths = list(img_paths)
+                generated_img_paths.extend(img_paths)
+
                 for target_feature in torch.chunk(target_features, target_features.size(0), dim=0):
                     generated_features.append(target_feature)
 
             real_data = ImageDataset(self.real_dir, self.data_size, self.batch_size)
             real_loader = DataLoader(real_data, batch_size=self.batch_size, shuffle=False)
 
-            for imgs in tqdm(real_loader, ncols=80):
+            for imgs, _ in tqdm(real_loader, ncols=80):
                 target_features = cnn(imgs)
+
                 for target_feature in torch.chunk(target_features, target_features.size(0), dim=0):
                     real_features.append(target_feature)
 
-        return generated_features, real_features
+        return generated_features, real_features, generated_img_paths
 
     def show_image(self, img):
         unloader = transforms.ToPILImage()  # reconvert into PIL image
@@ -110,7 +116,7 @@ class ImageDataset(Dataset):
         img_path = self.img_paths[idx]
         image = Image.open(img_path)
         image = self.transformations(image)
-        return image.to(device, torch.float)
+        return image.to(device, torch.float), img_path
 
     def __len__(self):
         return len(self.img_paths)

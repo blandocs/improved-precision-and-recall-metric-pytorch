@@ -17,12 +17,13 @@ class precision_and_recall(object):
         self.cpu = args.cpu
         self.seed = args.seed
         self.data_size = args.data_size
+        self.k = 3
 
     def run(self):
         
         # load data using vgg16
         extractor = feature_extractor(self.args)
-        generated_features, real_features = extractor.extract()
+        generated_features, real_features, _ = extractor.extract()
         # print(generated_features)
         # equal number of samples
         data_num = min(len(generated_features), len(real_features))
@@ -35,8 +36,8 @@ class precision_and_recall(object):
         real_features = real_features[:data_num]
 
         # get precision and recall
-        precision = self.manifold_estimate(real_features, generated_features, 3)
-        recall = self.manifold_estimate(generated_features, real_features, 3)
+        precision = self.manifold_estimate(real_features, generated_features, self.k)
+        recall = self.manifold_estimate(generated_features, real_features, self.k)
  
         print(precision)        
         print(recall)
@@ -74,7 +75,51 @@ class realism(object):
         self.result_dir = args.result_dir
         self.batch_size = args.batch_size
         self.cpu = args.cpu
-        self.seed = args.seed   
+        self.seed = args.seed 
+        self.k = 3  
 
     def run(self):
+
+        # load data using vgg16
+        extractor = feature_extractor(self.args)
+        generated_features, real_features, generated_img_paths = extractor.extract()
+
+        # equal number of samples
+        data_num = min(len(generated_features), len(real_features))
+        print(f'data num: {data_num}')
+
+        if data_num <= 0:
+            print("there is no data")
+            return
+        generated_features = generated_features[:data_num]
+        real_features = real_features[:data_num]
+        generated_img_paths = generated_img_paths[:data_num]
+
+        KNN_list_in_real = self.calculate_real_NNK(real_features, self.k)
+
+        for i, generated_feature in enumerate(tqdm(generated_features, ncols=80)):
+
+            max_value = 0
+            for real_feature, KNN_radius in KNN_list_in_real.items():
+                d = torch.norm((real_feature-generated_feature), 2)
+                value = KNN_radius/d
+                if max_value < value:
+                    max_value = value
+
+            if 'high_realism' in generated_img_paths[i] or 'low_realism' in generated_img_paths[i]:
+                print(f'{generated_img_paths[i]} realism score: {max_value}')
+
         return
+
+    def calculate_real_NNK(self, real_features, k):
+        KNN_list_in_real = {}
+        for real_feature in tqdm(real_features, ncols=80):
+            pairwise_distances = np.zeros(shape=(len(real_features)))
+
+            for i, real_prime in enumerate(real_features):
+                d = torch.norm((real_feature-real_prime), 2)
+                pairwise_distances[i] = d
+
+            v = np.partition(pairwise_distances, k)[k]
+            KNN_list_in_real[real_feature] = v
+        return KNN_list_in_real
