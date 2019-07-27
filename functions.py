@@ -2,6 +2,7 @@ import os, torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+import operator
 
 from dataloader import feature_extractor
 from tqdm import tqdm
@@ -15,7 +16,6 @@ class precision_and_recall(object):
         self.result_dir = args.result_dir
         self.batch_size = args.batch_size
         self.cpu = args.cpu
-        self.seed = args.seed
         self.data_size = args.data_size
         self.k = 3
 
@@ -75,7 +75,6 @@ class realism(object):
         self.result_dir = args.result_dir
         self.batch_size = args.batch_size
         self.cpu = args.cpu
-        self.seed = args.seed 
         self.k = 3  
 
     def run(self):
@@ -95,12 +94,12 @@ class realism(object):
         real_features = real_features[:data_num]
         generated_img_paths = generated_img_paths[:data_num]
 
-        KNN_list_in_real = self.calculate_real_NNK(real_features, self.k)
+        KNN_list_in_real = self.calculate_real_NNK(real_features, self.k, data_num)
 
         for i, generated_feature in enumerate(tqdm(generated_features, ncols=80)):
 
             max_value = 0
-            for real_feature, KNN_radius in KNN_list_in_real.items():
+            for real_feature, KNN_radius in KNN_list_in_real:
                 d = torch.norm((real_feature-generated_feature), 2)
                 value = KNN_radius/d
                 if max_value < value:
@@ -111,7 +110,7 @@ class realism(object):
 
         return
 
-    def calculate_real_NNK(self, real_features, k):
+    def calculate_real_NNK(self, real_features, k, data_num):
         KNN_list_in_real = {}
         for real_feature in tqdm(real_features, ncols=80):
             pairwise_distances = np.zeros(shape=(len(real_features)))
@@ -122,4 +121,10 @@ class realism(object):
 
             v = np.partition(pairwise_distances, k)[k]
             KNN_list_in_real[real_feature] = v
+
+        # remove half of larger values
+        KNN_list_in_real = sorted(KNN_list_in_real.items(), key=operator.itemgetter(1)) 
+        KNN_list_in_real = KNN_list_in_real[:int(data_num/2)]
+
+
         return KNN_list_in_real
