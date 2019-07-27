@@ -8,7 +8,12 @@ import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 import torchvision.models as models
 
+from torch.utils.data import DataLoader
+from torch.utils.data.dataset import Dataset  # For custom datasets
+
 from torchsummary import summary
+from tqdm import tqdm
+
 # https://pytorch.org/tutorials/advanced/neural_style_tutorial.html
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -24,18 +29,6 @@ class feature_extractor(object):
         self.cpu = args.cpu
         self.seed = args.seed
         self.data_size = args.data_size
-
-        self.imsize = 224 # for vgg input size
-
-        # https://github.com/leongatys/PytorchNeuralStyleTransfer
-        self.transformations = transforms.Compose([
-            transforms.Resize(self.imsize),  # scale imported image
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
-            transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
-            std=[1,1,1]),
-            transforms.Lambda(lambda x: x.mul_(255)),
-            ])  # transform it into a torch tensor
 
     def extract(self):
         # test loading image properly
@@ -55,36 +48,25 @@ class feature_extractor(object):
         generated_features = []
         real_features = []
         with torch.no_grad():
-            # extract generated images
-            for i, img_name in enumerate(os.listdir(self.generated_dir)):
-                img_name = os.path.join(self.generated_dir, img_name)
-                img = self.image_loader(img_name)
-                # print(img)
-                target_feature = cnn(img)
-                generated_features.append(target_feature)
-                # print(target_feature)
-                if i > self.data_size - 2:
-                    break
 
-            # real generated images
-            for i, img_name in enumerate(os.listdir(self.real_dir)):
-                img_name = os.path.join(self.real_dir, img_name)
-                img = self.image_loader(img_name)
-                # print(img)
-                target_feature = cnn(img)
-                real_features.append(target_feature)
-                # print(target_feature)
-                if i > self.data_size - 2:
-                    break                
+            generated_data = ImageDataset(self.generated_dir, self.data_size, self.batch_size)
+            generated_loader = DataLoader(generated_data, batch_size=self.batch_size, shuffle=False)
+
+            for imgs in tqdm(generated_loader, ncols=80):
+                target_features = cnn(imgs)
+                
+                for target_feature in torch.chunk(target_features, target_features.size(0), dim=0):
+                    generated_features.append(target_feature)
+
+            real_data = ImageDataset(self.real_dir, self.data_size, self.batch_size)
+            real_loader = DataLoader(real_data, batch_size=self.batch_size, shuffle=False)
+
+            for imgs in tqdm(real_loader, ncols=80):
+                target_features = cnn(imgs)
+                for target_feature in torch.chunk(target_features, target_features.size(0), dim=0):
+                    real_features.append(target_feature)
+
         return generated_features, real_features
-
-
-    def image_loader(self, image_name):
-        image = Image.open(image_name)
-        # print(image)
-        # fake batch dimension required to fit network's input dimensions
-        image = self.transformations(image).unsqueeze(0)
-        return image.to(device, torch.float)
 
     def show_image(self, img):
         unloader = transforms.ToPILImage()  # reconvert into PIL image
@@ -98,3 +80,37 @@ class feature_extractor(object):
         plt.pause(10) # pause a bit so that plots are updated
 
 
+class ImageDataset(Dataset):
+    def __init__(self, dir_path, data_size=100, batch_size=64):
+        self.dir_path = dir_path
+
+        data_size = data_size - data_size%batch_size
+
+        self.img_paths = []
+
+        for i, img_name in enumerate(os.listdir(dir_path)):
+            if i >= data_size:
+                break
+            img_path = os.path.join(dir_path, img_name)
+            self.img_paths.append(img_path)
+
+        self.imsize = 224 # for vgg input size
+
+        # https://github.com/leongatys/PytorchNeuralStyleTransfer
+        self.transformations = transforms.Compose([
+            transforms.Resize(self.imsize),  # scale imported image
+            transforms.ToTensor(),
+            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
+            transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
+            std=[1,1,1]),
+            transforms.Lambda(lambda x: x.mul_(255)),
+            ])  # transform it into a torch tensor
+
+    def __getitem__(self, idx):
+        img_path = self.img_paths[idx]
+        image = Image.open(img_path)
+        image = self.transformations(image)
+        return image.to(device, torch.float)
+
+    def __len__(self):
+        return len(self.img_paths)

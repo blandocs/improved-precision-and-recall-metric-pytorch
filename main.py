@@ -17,11 +17,6 @@ def parse_args():
 
     parser.add_argument('--generated_dir', default=G_DIRECTORY)
     parser.add_argument('--real_dir', default=R_DIRECTORY)
-
-
-
-    
-
     print(parser.parse_args())
     return check_args(parser.parse_args())
 
@@ -37,6 +32,7 @@ def check_args(args):
         print('batch size must be larger than or equal to one')
 
     return args
+
 
 def main():
     # parse arguments
