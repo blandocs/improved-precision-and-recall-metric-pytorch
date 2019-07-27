@@ -13,9 +13,12 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=64, help='The size of batch')
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--data_size', type=int, default=100)
 
     parser.add_argument('--generated_dir', default=G_DIRECTORY)
     parser.add_argument('--real_dir', default=R_DIRECTORY)
+
+
 
     
 

@@ -23,6 +23,7 @@ class feature_extractor(object):
         self.batch_size = args.batch_size
         self.cpu = args.cpu
         self.seed = args.seed
+        self.data_size = args.data_size
 
         self.imsize = 224 # for vgg input size
 
@@ -50,22 +51,32 @@ class feature_extractor(object):
         cnn.classifier = nn.Sequential(*[cnn.classifier[i] for i in range(5)])
         cnn = cnn.to(device).eval()
         # summary(cnn, (3, 224, 224))
-        
-        # extract generated images
-        for img_name in os.listdir(self.generated_dir):
-            img_name = os.path.join(self.generated_dir, img_name)
-            img = self.image_loader(img_name)
-            # print(img)
-            target_feature = cnn(img)
-            # print(target_feature)
 
-        # real generated images
-        for img_name in os.listdir(self.real_dir):
-            img_name = os.path.join(self.real_dir, img_name)
-            img = self.image_loader(img_name)
-            # print(img)
-            target_feature = cnn(img)
-            # print(target_feature)
+        generated_features = []
+        real_features = []
+        with torch.no_grad():
+            # extract generated images
+            for i, img_name in enumerate(os.listdir(self.generated_dir)):
+                img_name = os.path.join(self.generated_dir, img_name)
+                img = self.image_loader(img_name)
+                # print(img)
+                target_feature = cnn(img)
+                generated_features.append(target_feature)
+                # print(target_feature)
+                if i > self.data_size - 2:
+                    break
+
+            # real generated images
+            for i, img_name in enumerate(os.listdir(self.real_dir)):
+                img_name = os.path.join(self.real_dir, img_name)
+                img = self.image_loader(img_name)
+                # print(img)
+                target_feature = cnn(img)
+                real_features.append(target_feature)
+                # print(target_feature)
+                if i > self.data_size - 2:
+                    break                
+        return generated_features, real_features
 
 
     def image_loader(self, image_name):
