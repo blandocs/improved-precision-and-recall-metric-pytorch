@@ -27,7 +27,6 @@ class feature_extractor(object):
         self.real_dir = args.real_dir
         self.batch_size = args.batch_size
         self.cpu = args.cpu
-        self.seed = args.seed
         self.data_size = args.data_size
 
     def extract(self):

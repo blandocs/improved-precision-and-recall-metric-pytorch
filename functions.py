@@ -105,6 +105,7 @@ class realism(object):
                 if max_value < value:
                     max_value = value
 
+            # print images with specific names
             if 'high_realism' in generated_img_paths[i] or 'low_realism' in generated_img_paths[i]:
                 print(f'{generated_img_paths[i]} realism score: {max_value}')
 

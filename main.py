@@ -1,8 +1,8 @@
 import argparse, os, torch
 from functions import precision_and_recall, realism
 
-G_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'generated_data')
-R_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'real_data')
+G_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'truncation_0_7')
+R_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images1024x1024')
 
 def parse_args():
     desc = "calcualte precision and recall OR realism"
